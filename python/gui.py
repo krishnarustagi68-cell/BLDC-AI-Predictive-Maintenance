@@ -135,8 +135,19 @@ class Models:
             xs = self.scaler.transform(x)
             km_c = self.km.predict(xs)[0]
             km_p = self.km_map.get(km_c, "Unknown")
-            lr_p = self.le.inverse_transform(self.lr.predict(xs))[0]
-            dt_p = self.le.inverse_transform(self.dt.predict(x))[0]
+            
+            lr_pred_raw = self.lr.predict(xs)[0]
+            if isinstance(lr_pred_raw, (int, np.integer)):
+                lr_p = self.le.inverse_transform([lr_pred_raw])[0]
+            else:
+                lr_p = str(lr_pred_raw)
+
+            dt_pred_raw = self.dt.predict(x)[0]
+            if isinstance(dt_pred_raw, (int, np.integer)):
+                dt_p = self.le.inverse_transform([dt_pred_raw])[0]
+            else:
+                dt_p = str(dt_pred_raw)
+                
             return {"K-Means": km_p, "Logistic Reg": lr_p, "Decision Tree": dt_p}
         except Exception as e:
             print(f"ML error: {e}")
@@ -248,9 +259,14 @@ class DataThread(threading.Thread):
             if (not line or "Temperature" in line or "ERROR" in line
                     or "READY" in line or "===" in line or "Motor" in line):
                 return None
-            p = line.split(",")
+            p = [x.strip() for x in line.split(",")]
             if len(p) < 7:
                 return None
+
+            def safe_float(val, default=0.0):
+                try: return float(val)
+                except ValueError: return default
+
             return {
                 "Temperature": float(p[0]),
                 "VibrationX": float(p[1]),
@@ -259,9 +275,9 @@ class DataThread(threading.Thread):
                 "Current": float(p[4]),
                 "Voltage": float(p[5]),
                 "RPM": float(p[6]),
-                "MagX": float(p[7]) if len(p) > 7 else 0.0,
-                "MagY": float(p[8]) if len(p) > 8 else 0.0,
-                "MagZ": float(p[9]) if len(p) > 9 else 0.0,
+                "MagX": safe_float(p[7]) if len(p) > 7 else 0.0,
+                "MagY": safe_float(p[8]) if len(p) > 8 else 0.0,
+                "MagZ": safe_float(p[9]) if len(p) > 9 else 0.0,
             }
         except:
             return None

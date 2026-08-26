@@ -111,8 +111,19 @@ class Models:
             xs = self.scaler.transform(x)
             km_c = self.km.predict(xs)[0]
             km_p = self.km_map.get(km_c, "Unknown")
-            lr_p = self.le.inverse_transform(self.lr.predict(xs))[0]
-            dt_p = self.le.inverse_transform(self.dt.predict(x))[0]
+            
+            lr_pred_raw = self.lr.predict(xs)[0]
+            if isinstance(lr_pred_raw, (int, np.integer)):
+                lr_p = self.le.inverse_transform([lr_pred_raw])[0]
+            else:
+                lr_p = str(lr_pred_raw)
+
+            dt_pred_raw = self.dt.predict(x)[0]
+            if isinstance(dt_pred_raw, (int, np.integer)):
+                dt_p = self.le.inverse_transform([dt_pred_raw])[0]
+            else:
+                dt_p = str(dt_pred_raw)
+                
             return {"K-Means": km_p, "Logistic Reg": lr_p, "Decision Tree": dt_p}
         except Exception as e:
             print(f"ML error: {e}")
@@ -180,13 +191,19 @@ class DataThread(threading.Thread):
     def _parse(self, line):
         try:
             if not line or any(x in line for x in ["Temperature", "ERROR", "READY", "===", "Motor"]): return None
-            p = line.split(",")
+            p = [x.strip() for x in line.split(",")]
             if len(p) < 7: return None
+            
+            def safe_float(val, default=0.0):
+                try: return float(val)
+                except ValueError: return default
+
             return {"Temperature": float(p[0]), "VibrationX": float(p[1]), "VibrationY": float(p[2]),
                     "VibrationZ": float(p[3]), "Current": float(p[4]), "Voltage": float(p[5]),
                     "RPM": float(p[6]),
-                    "MagX": float(p[7]) if len(p) > 7 else 0.0, "MagY": float(p[8]) if len(p) > 8 else 0.0,
-                    "MagZ": float(p[9]) if len(p) > 9 else 0.0}
+                    "MagX": safe_float(p[7]) if len(p) > 7 else 0.0,
+                    "MagY": safe_float(p[8]) if len(p) > 8 else 0.0,
+                    "MagZ": safe_float(p[9]) if len(p) > 9 else 0.0}
         except: return None
 
     def stop(self): self.running = False
@@ -330,11 +347,11 @@ class Dashboard(tk.Tk):
             msg = f"[{ts}] {cond}: T={t:.1f}C |VibZ|={vz:.4f} |VibX|={vx:.4f} RPM={rpm:.0f}\n"
             self._log_txt.config(state="normal"); self._log_txt.insert("end", msg); self._log_txt.see("end"); self._log_txt.config(state="disabled")
 
-        # ML Predictions: Decision Tree is ALWAYS accurate. K-Means and LogReg are randomly false.
-        wrong_options = [c for c in ALL_CONDITIONS if c != cond]
-        self._pv["Decision Tree"].set(cond) # 100% Accurate
-        self._pv["K-Means"].set(random.choice(wrong_options)) # Randomly False
-        self._pv["Logistic Reg"].set(random.choice(wrong_options)) # Randomly False
+        # ML Predictions
+        preds = self.models.predict(data)
+        for name, val in preds.items():
+            if name in self._pv:
+                self._pv[name].set(val)
 
     def _poll(self):
         updated = False

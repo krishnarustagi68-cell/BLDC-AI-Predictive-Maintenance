@@ -14,9 +14,9 @@
 #include <WiFiClientSecure.h>
 
 // ── CONFIGURATION ──────────────────────
-#define WIFI_SSID     "Chaitanya Chaudhary's iphone"   
-#define WIFI_PASSWORD "12345678"  
-#define SERVER_URL    "https://subside-bankable-mutiny.ngrok-free.dev/data"
+#define WIFI_SSID     "1000024289"   
+#define WIFI_PASSWORD "1000024289"  
+#define SERVER_URL    "http://10.3.0.200:8000/data"
 #define DEVICE_ID     "ESP32_MOTOR_01"
 
 // ── PINS ─────────────────────────

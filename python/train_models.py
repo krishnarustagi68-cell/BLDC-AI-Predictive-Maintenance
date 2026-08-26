@@ -25,6 +25,8 @@ import argparse
 import pickle
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from sklearn.model_selection import train_test_split
@@ -204,7 +206,7 @@ def plot_results(results: dict, y_test, le: LabelEncoder):
     plt.savefig("../models/model_comparison.png", dpi=150,
                 bbox_inches="tight", facecolor="#0F172A")
     print("\n  📊 Chart saved → models/model_comparison.png")
-    plt.show()
+    # plt.show()
 
 
 # ─── Save Models ───────────────────────────────────────────────
@@ -225,6 +227,7 @@ def save_models(km, km_map, lr, dt, scaler, le):
     save(dt,      "decision_tree.pkl")
     save(scaler,  "scaler.pkl")
     save(le,      "label_encoder.pkl")
+    save(FEATURE_COLS, "feature_list.pkl")
 
 
 # ─── Main ─────────────────────────────────────────────────────
