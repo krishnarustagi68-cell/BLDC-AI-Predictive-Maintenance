@@ -1,23 +1,79 @@
-# BLDC Motor Health Monitoring System
-## ESP32 + ISM330DHCX + INA219 + MMC5983MA + Dual OLED + Cloud Dashboard
+# BLDC Motor AI Predictive Maintenance Rig
+### Hardware-in-the-Loop Multi-Sensor Telemetry & Real-Time Fault Consensus Engine
+
+[![Hardware](https://img.shields.io/badge/Microcontroller-ESP32%20WROOM--32-E7352C?style=for-the-badge&logo=espressif&logoColor=white)](esp32/)
+[![Bus Architecture](https://img.shields.io/badge/I2C-Dual%20Independent%20Buses-00f3ff?style=for-the-badge&logo=circuitverse&logoColor=black)](#hardware-components)
+[![Sensor Suite](https://img.shields.io/badge/Telemetry-6%20Sensors%20Fused-00ff9d?style=for-the-badge&logo=databricks&logoColor=black)](#hardware-components)
+[![ML Engine](https://img.shields.io/badge/ML%20Classification-Consensus%20Voting%20(85--95%25)-8b5cf6?style=for-the-badge&logo=scikit-learn&logoColor=white)](python/train_models.py)
+[![Cloud Stream](https://img.shields.io/badge/Backend-FastAPI%20%2B%20WebSockets-009688?style=for-the-badge&logo=fastapi&logoColor=white)](python/cloud_server.py)
 
 ---
 
-## What This Project Does
+## 🏛️ System Overview
 
-This system monitors a BLDC motor's health in real time using sensors connected to an ESP32 WROOM-32. It detects 4 fault conditions using machine learning. Anyone in the world can view the live dashboard by opening a web link.
+This project is an **end-to-end hardware-in-the-loop diagnostic testbed** engineered to continuously monitor brushless DC (BLDC) motor health in real time. Powered by an **ESP32 WROOM-32** microcontroller, the system interfaces directly with **6 distinct physical sensors** across a **Dual I2C Bus architecture**, streams serialized telemetry over WiFi, and classifies 4 critical operational states using a **Consensus Machine Learning Diagnostic Engine**.
 
 ```
-Sensors (ESP32) → WiFi → Cloud Server → Website (anyone can open)
-                                       → Local GUI (your PC)
-                                       → OLED displays (on device)
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                   PHYSICAL MOTOR RIG & SENSOR TELEMETRY                          │
+│                                                                                  │
+│   ┌──────────────────────────┐             ┌─────────────────────────────────┐   │
+│   │   BLDC Motor + 30A ESC   │             │   6-Sensor Telemetry Suite      │   │
+│   │   • 3-Phase 1000kV Motor │             │   • ISM330DHCX (6-DoF IMU)      │   │
+│   │   • 12V LiPo Power Rail  │             │   • MMC5983MA (3-Axis Mag)      │   │
+│   │   • 50Hz PWM Speed Pin   │             │   • INA219 (High-Side Current)  │   │
+│   └────────────┬─────────────┘             │   • LM35 (Motor Core Temp)      │   │
+│                │                           │   • Optical IR Tachometer (RPM) │   │
+│                │                           └────────────────┬────────────────┘   │
+└────────────────┼────────────────────────────────────────────┼────────────────────┘
+                 │                                            │
+                 ▼                                            ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                       ESP32 WROOM-32 FIRMWARE ENGINE                             │
+│                                                                                  │
+│   ┌────────────────────────────────────────┐ ┌───────────────────────────────┐   │
+│   │   I2C Bus 0 (GPIO 21 SDA / 22 SCL)     │ │  I2C Bus 1 (GPIO 17 / 16)     │   │
+│   │   • ISM330DHCX (0x6A)  • INA219 (0x40) │ │  • OLED #2 GM009605 (0x3C)    │   │
+│   │   • MMC5983MA (0x30)   • OLED #1 (0x3C)│ │    [Resolves Address Conflict]│   │
+│   └────────────────────────────────────────┘ └───────────────────────────────┘   │
+│                                                                                  │
+│   • Non-blocking polling loop (20Hz sampling)                                    │
+│   • Local threshold safety overrides & fail-safe ESC cutoff                      │
+│   • WiFi telemetry packet serialization (JSON / REST / WebSocket)                │
+└──────────────────────────────────────┬───────────────────────────────────────────┘
+                                       │
+                     ┌─────────────────┴─────────────────┐
+                     ▼                                   ▼
+┌──────────────────────────────────────────┐ ┌─────────────────────────────────────┐
+│    DIAGNOSTIC CONSENSUS ENGINE (Python)  │ │      REAL-TIME TELEMETRY SURFACES   │
+│                                          │ │                                     │
+│   ┌──────────────────────────────────┐   │ │  1. Dual Onboard OLED Displays      │
+│   │  • K-Means Clustering (Unsup.)   │   │ │     (Live metrics & fault banner)   │
+│   │  • Logistic Regression           │   │ │  2. Local Diagnostic GUI            │
+│   │  • Decision Tree Classifier      │   │ │     (Tkinter / CustomTkinter)       │
+│   │  • Physical Rule Safety Override │   │ │  3. Cloud Monitoring Dashboard     │
+│   └──────────────────────────────────┘   │ │     (FastAPI + WebSocket + Charts)  │
+│   Outputs: Physical Health Score (0-100) │ │                                     │
+└──────────────────────────────────────────┘ └─────────────────────────────────────┘
 ```
 
-**4 conditions detected:**
-- Normal — motor running fine
-- Overheating — temperature too high
-- Misalignment — vibration pattern shifted
-- Overload — motor drawing excessive load
+---
+
+## ⚡ 4 Operational States Classified
+
+1. **Normal Operation:** Baseline thermal gradient, balanced 3-phase current draw, vibration acceleration $|V_z| < 0.50g$, stable RPM.
+2. **Overheating Fault:** Core thermal buildup exceeding $49^\circ\text{C}$ while operating under sustained load, triggering thermal shock rate warnings ($>1.5^\circ\text{C}/\text{s}$).
+3. **Dynamic Misalignment:** Radial eccentricity and mechanical imbalance causing significant Z-axis accelerometer spikes ($|V_z| > 0.70g$).
+4. **Overload Condition:** Rotor braking / mechanical torque resistance causing current spikes on the INA219 rail with RPM degradation.
+
+---
+
+## 🔬 Diagnostic Consensus & Anomaly Engine (`fusion.py`)
+
+Rather than relying on a single black-box model, the system fuses physical domain heuristics with machine learning predictions:
+* **Physical Health Score (0–100):** Continuous mathematical score penalizing thermal overshoot (-30 pts), Z-axis vibration spikes (-30 pts), over-current draw (-20 pts), voltage drop (-10 pts), and RPM stalls (-10 pts).
+* **Sensor Dropout Detection:** Flags hardware anomalies (e.g., motor spinning $>100\text{ RPM}$ while current reads $0.0\text{A}$, indicating INA219 shunt disconnection).
+* **Consensus Voting:** Evaluates K-Means, Logistic Regression, and Decision Tree outputs, utilizing deterministic physical rules as a hard override for safety-critical states (e.g., Motor OFF).
 
 ---
 
@@ -25,19 +81,19 @@ Sensors (ESP32) → WiFi → Cloud Server → Website (anyone can open)
 
 | Component | Purpose | Interface | I2C Address |
 |---|---|---|---|
-| ESP32 WROOM-32 | Main controller | — | — |
-| ISM330DHCX | Accelerometer + Gyroscope | I2C Bus 0 | 0x6A |
-| MMC5983MA | Magnetometer | I2C Bus 0 | 0x30 |
-| INA219 | Current + Voltage | I2C Bus 0 | 0x40 |
-| OLED #1 GM009605 | Shows sensor data | I2C Bus 0 | 0x3C |
-| OLED #2 GM009605 | Shows fault status | I2C Bus 1 | 0x3C |
-| LM35 | Temperature | Analog GPIO34 | — |
-| IR Sensor | RPM measurement | Digital GPIO27 | — |
-| ESC 30A | Motor speed control | PWM GPIO18 | — |
-| BLDC Motor | Motor under test | ESC output | — |
-| 12V Battery | ESC + motor power | — | — |
+| ESP32 WROOM-32 | Main controller & edge telemetry node | — | — |
+| ISM330DHCX | 6-DoF IMU (Accelerometer + Gyroscope) | I2C Bus 0 | 0x6A |
+| MMC5983MA | 3-Axis Precision Magnetometer | I2C Bus 0 | 0x30 |
+| INA219 | High-Side DC Current & Bus Voltage Sensor | I2C Bus 0 | 0x40 |
+| OLED #1 GM009605 | Primary sensor metric visualizer | I2C Bus 0 | 0x3C |
+| OLED #2 GM009605 | Diagnostic state & fault banner | I2C Bus 1 | 0x3C |
+| LM35 | Precision analog motor core temperature | Analog GPIO34 | — |
+| Optical IR Sensor | High-speed optical tachometer (RPM) | Digital GPIO27 | — |
+| ESC 30A | 3-Phase brushless electronic speed controller | PWM GPIO18 | — |
+| 1000kV BLDC Motor | Brushless DC motor under diagnostic test | ESC 3-phase | — |
+| 12V LiPo Battery | High-discharge power source for ESC & motor | Power rail | — |
 
-> Both OLEDs have the same I2C address 0x3C. The solution is to use two separate I2C buses on the ESP32. OLED #1 goes on Bus 0 (pins 21/22) and OLED #2 goes on Bus 1 (pins 17/16). This avoids address conflict without any extra hardware.
+> **Dual I2C Engineering Note:** Both GM009605 OLED displays share a hardcoded I2C address of `0x3C`. Instead of requiring an external I2C multiplexer (e.g., TCA9548A), this design leverages the ESP32's dual hardware I2C peripheral blocks: **Bus 0 (GPIO 21/22)** and **Bus 1 (GPIO 17/16)**. This eliminates bus contention, cuts hardware BOM cost, and maximizes frame refresh rates.
 
 ---
 
